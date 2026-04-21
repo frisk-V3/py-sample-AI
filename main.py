@@ -3,20 +3,21 @@ import os
 import random
 
 AI_FILE = "AI.json"
+CODE_FILE = "Code.json"
 
-# Markovデータを読み込む
-def load_model():
-    if os.path.exists(AI_FILE):
-        with open(AI_FILE, "r", encoding="utf-8") as f:
+# JSON読み込み
+def load_json(path):
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-# Markovデータを保存
-def save_model(model):
-    with open(AI_FILE, "w", encoding="utf-8") as f:
-        json.dump(model, f, ensure_ascii=False, indent=2)
+# JSON保存
+def save_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-# Markov遷移を追加（学習）
+# Markov学習
 def learn(model, text):
     tokens = list(text)
     for i in range(len(tokens) - 1):
@@ -25,14 +26,13 @@ def learn(model, text):
         model.setdefault(a, [])
         if b not in model[a]:
             model[a].append(b)
-    # 最後は終端
     last = tokens[-1]
     model.setdefault(last, [])
     if None not in model[last]:
         model[last].append(None)
 
-# Markovで文章生成
-def generate(model, start=None, max_len=50):
+# Markov生成
+def generate(model, start=None, max_len=80):
     if not model:
         return "（まだ学習データがありません）"
 
@@ -54,25 +54,35 @@ def generate(model, start=None, max_len=50):
 
     return "".join(result)
 
-# メインループ
 def chat():
-    model = load_model()
-    print("Markov AI チャット開始（exit で終了）")
+    # 2つのJSONを読み込む
+    ai = load_json(AI_FILE)
+    code = load_json(CODE_FILE)
+
+    # マージ（単純に辞書を合体）
+    model = {**ai, **code}
+
+    print("Hybrid Markov AI チャット開始（exit で終了）")
 
     while True:
         user = input("あなた: ").strip()
         if user.lower() == "exit":
             break
 
-        # 学習
-        learn(model, user)
+        # 学習（AI と Code 両方に学習させる）
+        learn(ai, user)
+        learn(code, user)
 
         # 返答生成
         reply = generate(model, start=user[0] if user else None)
         print("AI:", reply)
 
         # 保存
-        save_model(model)
+        save_json(AI_FILE, ai)
+        save_json(CODE_FILE, code)
+
+        # マージし直す（モデル更新）
+        model = {**ai, **code}
 
 if __name__ == "__main__":
     chat()
